@@ -1,4 +1,5 @@
 streamlit
 pandas
-gurobipy==13.0.2
+numpy
 matplotlib
+gurobipy==13.0.2

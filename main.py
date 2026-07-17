@@ -176,8 +176,15 @@ if st.button("🚀 PROSES OPTIMALISASI RUTE PABRIK", type="primary"):
             model.optimize()
             
             if model.status in [GRB.OPTIMAL, GRB.TIME_LIMIT]:
-                st.success("🎉 OPTIMASI SELESAI & BERHASIL DITEMUKAN!")
-                st.metric(label="Total Waktu Operasional Armada", value=f"{round(model.ObjVal, 2)} Menit")
+    st.success("🎉 OPTIMASI SELESAI & BERHASIL DITEMUKAN!")
+    
+    total_waktu_menit_asli = round(model.ObjVal, 2)
+    
+    jam = int(total_waktu_menit_asli // 60)
+    
+    menit = int(total_waktu_menit_asli % 60)
+    
+    st.metric(label="Total Waktu Operasional Armada", value=f"{jam} Jam ({menit} Menit)")
                 
                 routes_data = {}
                 

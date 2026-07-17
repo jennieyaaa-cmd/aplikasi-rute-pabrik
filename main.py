@@ -1,7 +1,25 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import io
 import gurobipy as gp
 from gurobipy import GRB
+
+st.markdown(
+    """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+    
+    /* Menggunakan Plus Jakarta Sans / Inter sebagai fallback Switzer yang identik di web jika lokal tidak ada */
+    html, body, [class*="css"], .stText, .stMarkdown, p, h1, h2, h3, h4, h5, h6, button, input, label {
+        font-family: 'Switzer', 'Plus Jakarta Sans', 'Segoe UI', sans-serif !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
@@ -15,18 +33,16 @@ if not st.session_state["authenticated"]:
     password = st.text_input("Password", type="password")
     
     if st.button("Login Masuk", type="primary"):
-        
         if username == "pabriksukses" and password == "090626":
             st.session_state["authenticated"] = True
             st.rerun()
         else:
             st.error("Username atau Password salah! Hubungi Admin Sistem.")
     st.stop()
- 
 
-st.set_page_config(page_title="Dashboard Rute Distribusi", page_icon="🚚", layout="wide")
-st.title("🚚 Dashboard Optimasi Rute Distribusi (MILP-Gurobi)")
-st.subheader("Sistem Pendukung Keputusan Penjadwalan Armada Harian")
+st.set_page_config(page_title="Dashboard Rute Distribusi", layout="wide")
+st.title("Dashboard Optimasi Rute Distribusi (MILP-Gurobi)")
+st.subheader("Sistem pendukung keputusan penjadwalan aramada harian => sistem informasi penentuan rute distribusi")
 
 with st.sidebar:
     st.markdown("### 👤 Karyawan Aktif")
@@ -36,37 +52,46 @@ with st.sidebar:
         st.session_state["authenticated"] = False
         st.rerun()
 
-st.markdown("### ⚙️ Parameter Input Operasional")
+st.markdown("### Parameter Input Operasional")
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.markdown("#### ⏱️ Waktu Proses (Menit)")
-    t_pabrik = st.number_input("Waktu Muat di Pabrik (t_pabrik)", min_value=0, value=10)
-    t_retailer = st.number_input("Waktu Bongkar di Toko (t_retailer)", min_value=0, value=10)
-    T_max = st.number_input("Batas Kerja Maksimal (T_max)", min_value=60, value=450)
+    with st.container(border=True):
+        st.markdown("#### ⏱️ Waktu Proses (Menit)")
+        t_pabrik = st.number_input("Waktu Muat di Pabrik (t_pabrik)", min_value=0, value=10)
+        t_retailer = st.number_input("Waktu Bongkar di Toko (t_retailer)", min_value=0, value=10)
+        T_max = st.number_input("Batas Kerja Maksimal (T_max)", min_value=60, value=450)
 
 with col2:
-    st.markdown("#### 📦 Kapasitas Armada (Keranjang)")
-    cap_mobil1 = st.number_input("Kapasitas Kendaraan 1", min_value=1, value=20)
-    cap_mobil2 = st.number_input("Kapasitas Kendaraan 2", min_value=1, value=25)
+    with st.container(border=True):
+        st.markdown("#### 📦 Kapasitas Armada (Keranjang)")
+        cap_mobil1 = st.number_input("Kapasitas Kendaraan 1", min_value=1, value=20)
+        cap_mobil2 = st.number_input("Kapasitas Kendaraan 2", min_value=1, value=25)
 
 with col3:
-    st.markdown("#### 🛠️ Pengaturan Gurobi")
-    time_limit = st.number_input("Batas Waktu Komputasi (detik)", min_value=5, value=30)
-    M_big = st.number_input("Nilai Konstanta M (Big M)", min_value=1000, value=10000)
+    with st.container(border=True):
+        st.markdown("#### 🛠️ Pengaturan Gurobi")
+        time_limit = st.number_input("Batas Waktu Komputasi (detik)", min_value=5, value=30)
+        M_big = st.number_input("Nilai Konstanta M (Big M)", min_value=1000, value=10000)
 
 st.divider()
 
-st.markdown("### 🎯 Jumlah Demand Keranjang Toko (Retailer 1 - 20)")
-st.write("Silakan ganti nilai di dalam tabel di bawah ini sesuai pesanan hari ini:")
+st.markdown("### 🎯 Jumlah Demand Toko (Retailer 1 - 20)")
+st.caption("💡 Masukkan jumlah dalam satuan **Pieces (Pcs)**. Sistem otomatis membaginya dengan 50 dan membulatkan ke atas menjadi satuan **Keranjang** untuk MILP.")
 
-default_demand = {
-    f"R{i}": [3 if i in [1, 2, 11, 12, 16, 17] else 4 if i == 5 else 2] 
+default_demand_pcs = {
+    f"R{i}": [150 if i in [1, 2, 11, 12, 16, 17] else 200 if i == 5 else 100] 
     for i in range(1, 21)
 }
-df_demand = pd.DataFrame(default_demand)
-edited_demand = st.data_editor(df_demand, hide_index=True)
-total_demand = edited_demand.sum().sum()
+df_demand_pcs = pd.DataFrame(default_demand_pcs)
+edited_demand_pcs = st.data_editor(df_demand_pcs, hide_index=True)
+
+demand_converted = np.ceil(edited_demand_pcs.values[0] / 50).astype(int)
+total_demand = sum(demand_converted)
+
+st.markdown("**📋 Hasil Konversi Kebutuhan Armada (Satuan Keranjang):**")
+df_hasil_keranjang = pd.DataFrame([demand_converted], columns=[f"R{i}" for i in range(1, 21)])
+st.dataframe(df_hasil_keranjang, hide_index=True)
 
 st.write(f"Total Muatan Hari Ini: **{total_demand} keranjang** | Total Kapasitas Mobil: **{cap_mobil1 + cap_mobil2} keranjang**")
 
@@ -96,7 +121,8 @@ if st.button("🚀 PROSES OPTIMALISASI RUTE PABRIK", type="primary"):
     V = list(range(1, 21))
     K = [1, 2]
     Q = {1: cap_mobil1, 2: cap_mobil2}
-    current_demand = {i: int(edited_demand.iloc[0, i-1]) for i in V}
+    
+    current_demand = {i: int(demand_converted[i-1]) for i in V}
     
     t_input = {}
     matrix_values = edited_matrix.values.tolist()
@@ -153,9 +179,12 @@ if st.button("🚀 PROSES OPTIMALISASI RUTE PABRIK", type="primary"):
                 st.success("🎉 OPTIMASI SELESAI & BERHASIL DITEMUKAN!")
                 st.metric(label="Total Waktu Operasional Armada", value=f"{round(model.ObjVal, 2)} Menit")
                 
+                routes_data = {}
+                
                 for k in K:
                     start_node = next((i for i in V if start[i, k].x > 0.5), None)
                     if start_node is not None:
+                        nodes_sequence = [0, start_node]
                         route_text = f"Pabrik ➡️ R-{start_node}"
                         curr = start_node
                         while True:
@@ -164,16 +193,83 @@ if st.button("🚀 PROSES OPTIMALISASI RUTE PABRIK", type="primary"):
                             
                             if nxt_direct is not None:
                                 route_text += f" ➡️ R-{nxt_direct}"
+                                nodes_sequence.append(nxt_direct)
                                 curr = nxt_direct
                             elif nxt_refill is not None:
-                                route_text += f" 🔄 **[REFILL KE PABRIK]** ➡️ Pabrik ➡️ R-{nxt_refill}"
+                                route_text += f" 🔄 [REFILL] ➡️ Pabrik ➡️ R-{nxt_refill}"
+                                nodes_sequence.extend([0, nxt_refill])
                                 curr = nxt_refill
                             else:
+                                nodes_sequence.append(0)
                                 break
-                        route_text += " ➡️ Pabrik (Selesai)🏁"
-                        st.info(f"**Rute Kendaraan {k} (Kapasitas {Q[k]}):**  \n{route_text}")
+                        route_text += " ➡️ Pabrik (Selesai) 🏁"
+                        st.info(f"**Rute Kendaraan {k} (Kapasitas {Q[k]} Keranjang):**  \n{route_text}")
+                        routes_data[k] = nodes_sequence
                     else:
-                        st.warning(f"**Kendaraan {k}:** Tidak digunakan untuk pengiriman hari ini.")
+                        st.warning(f"**Kendaraan {k}:** Tidak digunakan.")
+                        routes_data[k] = []
+                
+                st.markdown("### 📊 Peta Jalur Distribusi Mudah Dibaca (Versi Gambar Alur Panah)")
+                
+                fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(16, 6), facecolor='white')
+                axes = {1: ax1, 2: ax2}
+                
+                for k in K:
+                    ax = axes[k]
+                    seq = routes_data[k]
+                    
+                    if len(seq) > 2:
+                        x_pos = 0
+                        y_pos = 5
+                        
+                        visit_labels = []
+                        refill_count = 0
+                        for idx, node in enumerate(seq):
+                            if node == 0:
+                                if idx == 0:
+                                    visit_labels.append("🏢 PABRIK")
+                                elif idx == len(seq) - 1:
+                                    visit_labels.append("🏁 FINISH (PABRIK)")
+                                else:
+                                    visit_labels.append("🔄 REFILL (PABRIK)")
+                            else:
+                                visit_labels.append(f"Toko R{node}")
+                        
+                        for i, label in enumerate(visit_labels):
+                            ax.text(x_pos, y_pos, f" {label} ", fontsize=10, fontweight='bold',
+                                    bbox=dict(boxstyle="round,pad=0.6", facecolor="#F0F2F6" if "PABRIK" in label else "#E1F5FE", edgecolor="black", lw=1.5),
+                                    ha="center", va="center")
+                            
+                            if i < len(visit_labels) - 1:
+                                ax.annotate('', xy=(x_pos + 2.1, y_pos), xytext=(x_pos + 0.9, y_pos),
+                                            arrowprops=dict(arrowstyle="-|>", lw=3, color="black", mutation_scale=15))
+                            
+                            x_pos += 3.0 
+                        
+                        ax.set_title(f"🚚 ALUR RUTE KENDARAAN {k} (Kapasitas: {Q[k]} Keranjang)", fontsize=12, fontweight='bold', loc='left', pad=10)
+                        ax.set_xlim(-1.5, max(x_pos - 1, 15))
+                        ax.set_ylim(2, 8)
+                    else:
+                        ax.text(5, 5, "KENDARAAN TIDAK BEROPERASI (NON-AKTIF)", fontsize=11, color='gray', ha='center', fontweight='bold')
+                        ax.set_title(f"🚚 KENDARAAN {k} (Non-Aktif)", fontsize=12, fontweight='bold', loc='left', pad=10)
+                        ax.set_xlim(0, 10)
+                        ax.set_ylim(2, 8)
+                        
+                    ax.axis('off')
+                
+                plt.tight_layout()
+                st.pyplot(fig)
+                
+                buf = io.BytesIO()
+                plt.savefig(buf, format="png", bbox_inches='tight', dpi=300)
+                buf.seek(0)
+                
+                st.download_button(
+                    label="📥 Download Gambar Hasil Pemetaan Rute (PNG)",
+                    data=buf,
+                    file_name="peta_rute_distribusi_panah.png",
+                    mime="image/png"
+                )
             else:
                 st.error("❌ Solusi Tidak Ditemukan (Infeasible).")
         except Exception as e:

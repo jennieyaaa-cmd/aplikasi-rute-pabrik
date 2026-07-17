@@ -3,7 +3,6 @@ import pandas as pd
 import gurobipy as gp
 from gurobipy import GRB
 
-# --- SISTEM LOGIN KARYAWAN PABRIK ---
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
@@ -12,12 +11,11 @@ if not st.session_state["authenticated"]:
     st.title("🔐 Sistem Informasi Optimasi Rute Pabrik")
     st.write("Silakan masukkan akun operasional pabrik:")
     
-    # KAKAK SUDAH UBAH EMAIL MENJADI USERNAME DI SINI
     username = st.text_input("Username", value="pabriksukses")
-    password = st.text_input("Password", type="password")
+    password = st.text_input("Password", type="090626")
     
     if st.button("Login Masuk", type="primary"):
-        # VALIDASI AKUN BARU
+        
         if username == "pabriksukses" and password == "090626":
             st.session_state["authenticated"] = True
             st.rerun()
@@ -25,7 +23,7 @@ if not st.session_state["authenticated"]:
             st.error("Username atau Password salah! Hubungi Admin Sistem.")
     st.stop()
  
-# --- HALAMAN UTAMA DASHBOARD ---
+
 st.set_page_config(page_title="Dashboard Rute Distribusi", page_icon="🚚", layout="wide")
 st.title("🚚 Dashboard Optimasi Rute Distribusi (MILP-Gurobi)")
 st.subheader("Sistem Pendukung Keputusan Penjadwalan Armada Harian")
@@ -38,7 +36,6 @@ with st.sidebar:
         st.session_state["authenticated"] = False
         st.rerun()
 
-# --- INPUT PARAMETER OPERASIONAL ---
 st.markdown("### ⚙️ Parameter Input Operasional")
 col1, col2, col3 = st.columns(3)
 
@@ -60,7 +57,6 @@ with col3:
 
 st.divider()
 
-# --- INPUT DEMAND TOKO (BISA DIEDIT DI WEB) ---
 st.markdown("### 🎯 Jumlah Demand Keranjang Toko (Retailer 1 - 20)")
 st.write("Silakan ganti nilai di dalam tabel di bawah ini sesuai pesanan hari ini:")
 
@@ -76,7 +72,6 @@ st.write(f"Total Muatan Hari Ini: **{total_demand} keranjang** | Total Kapasitas
 
 st.divider()
 
-# --- INPUT MATRIKS JARAK (BISA DIEDIT DI WEB) ---
 st.markdown("### 🗺️ Matriks Waktu Perjalanan Antar Lokasi (Menit)")
 st.write("Baris/Kolom 0 = Pabrik, Baris/Kolom 1-20 = Retailer 1-20. Ubah sel jika waktu jalan berubah:")
 
@@ -97,7 +92,6 @@ edited_matrix = st.data_editor(df_matrix)
 
 st.divider()
 
-# --- PROSES INTEGRASI KODE MILP GUROBI DARI COLAB ---
 if st.button("🚀 PROSES OPTIMALISASI RUTE PABRIK", type="primary"):
     V = list(range(1, 21))
     K = [1, 2]
@@ -112,7 +106,6 @@ if st.button("🚀 PROSES OPTIMALISASI RUTE PABRIK", type="primary"):
             
     with st.spinner("Sedang menjalankan kalkulasi Gurobi..."):
         try:
-            # PENTING: ISI KUNCI LISENSI KAMU DI SINI AGAR WEBSITE BISA MENGHITUNG ONLINE!
             params = {
                 "WLSACCESSID": "AKU_AKAN_BANTU_AMANKAN_INI", 
                 "WLSSECRET": "SECRET_KAMU",   

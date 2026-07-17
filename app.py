@@ -162,11 +162,6 @@ if st.button("🚀 PROSES OPTIMALISASI RUTE PABRIK", type="primary"):
                 st.success("🎉 OPTIMASI SELESAI & BERHASIL DITEMUKAN!")
                 st.metric(label="Total Waktu Operasional Armada", value=f"{round(model.ObjVal, 2)} Menit")
                 
-                # Mengatur susunan koordinat melingkar sempurna berurutan dari R1 ke R20
-                angles = np.linspace(0, 2 * np.pi, 21) # Membagi 20 titik merata
-                x_coords = [0.0] + list(np.cos(angles[:-1]) * 6)
-                y_coords = [0.0] + list(np.sin(angles[:-1]) * 6)
-                
                 routes_data = {}
                 
                 for k in K:
@@ -197,60 +192,79 @@ if st.button("🚀 PROSES OPTIMALISASI RUTE PABRIK", type="primary"):
                         st.warning(f"**Kendaraan {k}:** Tidak digunakan.")
                         routes_data[k] = []
                 
-                st.markdown("### 📊 Peta Visualisasi Jalur Distribusi Kendaraan (Hitam-Putih)")
+                st.markdown("### 📊 Peta Jalur Distribusi Real-Time Per Kendaraan")
                 
-                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8), facecolor='white')
+                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 9), facecolor='white')
                 axes = {1: ax1, 2: ax2}
                 
                 for k in K:
                     ax = axes[k]
-                    
-                    ax.scatter(0, 0, color='black', marker='s', s=350, zorder=5)
-                    ax.text(0, -0.6, '🏢 PABRIK\n(L0)', fontsize=10, fontweight='bold', ha='center', va='top')
-                    
-                    for i in range(1, 21):
-                        ax.scatter(x_coords[i], y_coords[i], color='white', edgecolor='#cccccc', linewidth=1, s=250, zorder=2)
-                        ax.text(x_coords[i], y_coords[i], str(i), fontsize=8, color='#aaaaaa', ha='center', va='center')
-                    
                     seq = routes_data[k]
+                    
+                    ax.scatter(0, 0, color='black', marker='s', s=500, zorder=5)
+                    ax.text(0, 0.5, '🏢 PABRIK (L0)', fontsize=11, fontweight='bold', ha='center', va='bottom', color='black')
+                    
                     if len(seq) > 2:
+                        visited_in_order = []
+                        visit_counter = {} 
+                        
+                        idx_visit = 1
+                        for node in seq:
+                            if node != 0:
+                                visited_in_order.append(node)
+                                visit_counter[node] = idx_visit
+                                idx_visit += 1
+                        
+                        num_visited = len(visited_in_order)
+                        
+                        angles = np.linspace(0, 2 * np.pi, num_visited, endpoint=False)
+                        
+                        node_coords = {0: (0.0, 0.0)}
+                        for idx, node in enumerate(visited_in_order):
+                            x_n = np.cos(angles[idx]) * 5.5
+                            y_n = np.sin(angles[idx]) * 5.5
+                            node_coords[node] = (x_n, y_n)
+                        
                         for s in range(len(seq) - 1):
                             u, v_node = seq[s], seq[s+1]
                             
-                            pos_a = (x_coords[u], y_coords[u])
-                            pos_b = (x_coords[v_node], y_coords[v_node])
+                            pos_a = node_coords[u]
+                            pos_b = node_coords[v_node]
                             
                             is_refill_return = (v_node == 0 and s > 1)
                             style_line = "dashed" if (u == 0 or is_refill_return) else "solid"
-                            color_line = "#666666" if is_refill_return else "black"
+                            color_line = "#777777" if is_refill_return else "black"
                             
                             arrow = patches.FancyArrowPatch(
                                 pos_a, pos_b,
                                 arrowstyle="-|>", 
-                                connectionstyle="arc3,rad=0.05", 
-                                mutation_scale=15, 
-                                linewidth=2.0, 
+                                connectionstyle="arc3,rad=0.08", 
+                                mutation_scale=16, 
+                                linewidth=2.5, 
                                 linestyle=style_line, 
                                 color=color_line, 
-                                shrinkA=10 if u != 0 else 5,  # Jarak potong dari titik asal
-                                shrinkB=12 if v_node != 0 else 5, # Jarak potong sebelum menyentuh titik tujuan
+                                shrinkA=22 if u != 0 else 8,
+                                shrinkB=25 if v_node != 0 else 8,
                                 zorder=3
                             )
                             ax.add_patch(arrow)
+                        
+                        for node in visited_in_order:
+                            xa, ya = node_coords[node]
                             
-                        visited_nodes = set(seq) - {0}
-                        for node in visited_nodes:
-                            ax.scatter(x_coords[node], y_coords[node], color='black', s=300, zorder=4)
-                            ax.text(x_coords[node], y_coords[node], f"R{node}", fontsize=9, color='white', fontweight='bold', ha='center', va='center')
+                            ax.scatter(xa, ya, color='white', edgecolor='black', linewidth=2.5, s=1200, zorder=4)
                             
-                        ax.set_title(f"🚚 JALUR DISTRIBUSI KENDARAAN {k}\n(Kapasitas: {Q[k]} Keranjang)", fontsize=12, fontweight='bold', pad=15)
+                            label_toko = f"R{node}\n(Ke-{visit_counter[node]})"
+                            ax.text(xa, ya, label_toko, fontsize=9, fontweight='bold', color='black', ha='center', va='center', zorder=5)
+                            
+                        ax.set_title(f"🚚 JALUR DISTRIBUSI KENDARAAN {k}\n(Kapasitas: {Q[k]} Keranjang)", fontsize=13, fontweight='bold', pad=20)
                     else:
-                        ax.text(0, 2, "KENDARAAN TIDAK BEROPERASI", fontsize=12, color='gray', ha='center', fontweight='bold')
-                        ax.set_title(f"🚚 KENDARAAN {k} (Non-Aktif)", fontsize=12, fontweight='bold', pad=15)
+                        ax.text(0, 0, "KENDARAAN TIDAK BEROPERASI (NON-AKTIF)", fontsize=12, color='gray', ha='center', fontweight='bold')
+                        ax.set_title(f"🚚 KENDARAAN {k} (Non-Aktif)", fontsize=13, fontweight='bold', pad=20)
                         
                     ax.axis('off')
-                    ax.set_xlim(-8, 8)
-                    ax.set_ylim(-8, 8)
+                    ax.set_xlim(-7.5, 7.5)
+                    ax.set_ylim(-7.5, 7.5)
                 
                 plt.tight_layout()
                 st.pyplot(fig)
@@ -262,7 +276,7 @@ if st.button("🚀 PROSES OPTIMALISASI RUTE PABRIK", type="primary"):
                 st.download_button(
                     label="📥 Download Gambar Hasil Pemetaan Rute (PNG)",
                     data=buf,
-                    file_name="peta_rute_distribusi_presisi.png",
+                    file_name="peta_rute_distribusi_terurut.png",
                     mime="image/png"
                 )
             else:

@@ -10,11 +10,11 @@ from gurobipy import GRB
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+    /* Mengambil font Switzer langsung dari CDN resmi web font */
+    @import url('https://api.fontshare.com/v2/css?f[]=switzer@300,400,500,600,700&display=swap');
     
-    /* Menggunakan Plus Jakarta Sans / Inter sebagai fallback Switzer yang identik di web jika lokal tidak ada */
     html, body, [class*="css"], .stText, .stMarkdown, p, h1, h2, h3, h4, h5, h6, button, input, label {
-        font-family: 'Switzer', 'Plus Jakarta Sans', 'Segoe UI', sans-serif !important;
+        font-family: 'Switzer', sans-serif !important;
     }
     </style>
     """,

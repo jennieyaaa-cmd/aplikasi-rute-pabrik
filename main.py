@@ -209,7 +209,7 @@ if st.button("🚀 PROSES OPTIMALISASI RUTE PABRIK", type="primary"):
                         st.warning(f"**Kendaraan {k}:** Tidak digunakan.")
                         routes_data[k] = []
                 
-                st.markdown("### 📊 Peta Jalur Distribusi Mudah Dibaca (Versi Bagan Terstruktur)")
+                st.markdown("### Peta Jalur Distribusi")
                 
                 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 12), facecolor='white')
                 axes = {1: ax1, 2: ax2}

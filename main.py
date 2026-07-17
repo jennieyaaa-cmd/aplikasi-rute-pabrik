@@ -209,9 +209,9 @@ if st.button("🚀 PROSES OPTIMALISASI RUTE PABRIK", type="primary"):
                         st.warning(f"**Kendaraan {k}:** Tidak digunakan.")
                         routes_data[k] = []
                 
-                st.markdown("### 📊 Peta Jalur Distribusi Mudah Dibaca (Versi Gambar Alur Panah)")
+                st.markdown("### 📊 Peta Jalur Distribusi Mudah Dibaca (Versi Bagan Terstruktur)")
                 
-                fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(16, 6), facecolor='white')
+                fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 12), facecolor='white')
                 axes = {1: ax1, 2: ax2}
                 
                 for k in K:
@@ -219,41 +219,80 @@ if st.button("🚀 PROSES OPTIMALISASI RUTE PABRIK", type="primary"):
                     seq = routes_data[k]
                     
                     if len(seq) > 2:
-                        x_pos = 0
-                        y_pos = 5
-                        
                         visit_labels = []
-                        refill_count = 0
                         for idx, node in enumerate(seq):
                             if node == 0:
                                 if idx == 0:
                                     visit_labels.append("🏢 PABRIK")
                                 elif idx == len(seq) - 1:
-                                    visit_labels.append("🏁 FINISH (PABRIK)")
+                                    visit_labels.append("🏁 FINISH\n(PABRIK)")
                                 else:
-                                    visit_labels.append("🔄 REFILL (PABRIK)")
+                                    visit_labels.append("🔄 REFILL\n(PABRIK)")
                             else:
-                                visit_labels.append(f"Toko R{node}")
+                                visit_labels.append(f"Toko R{node}\n(Urutan-{idx})")
+                        
+                        max_cols = 5
+                        coords = []
+                        current_row = 0
+                        
+                        for idx in range(len(visit_labels)):
+                            col = idx % max_cols
+                            if current_row % 2 == 1:
+                                col = (max_cols - 1) - col
+                            
+                            x = col * 3.5
+                            y = current_row * -2.5
+                            coords.append((x, y))
+                            
+                            if (idx + 1) % max_cols == 0:
+                                current_row += 1
                         
                         for i, label in enumerate(visit_labels):
-                            ax.text(x_pos, y_pos, f" {label} ", fontsize=10, fontweight='bold',
-                                    bbox=dict(boxstyle="round,pad=0.6", facecolor="#F0F2F6" if "PABRIK" in label else "#E1F5FE", edgecolor="black", lw=1.5),
-                                    ha="center", va="center")
+                            x_curr, y_curr = coords[i]
                             
-                            if i < len(visit_labels) - 1:
-                                ax.annotate('', xy=(x_pos + 2.1, y_pos), xytext=(x_pos + 0.9, y_pos),
-                                            arrowprops=dict(arrowstyle="-|>", lw=3, color="black", mutation_scale=15))
-                            
-                            x_pos += 3.0 
+                            if "PABRIK" in label:
+                                f_color = "#343A40"
+                                t_color = "white"
+                            elif "REFILL" in label:
+                                f_color = "#FFC107"
+                                t_color = "black"
+                            else:
+                                f_color = "#E1F5FE"
+                                t_color = "black"
+                                
+                            ax.text(x_curr, y_curr, f" {label} ", fontsize=9, fontweight='bold', color=t_color,
+                                    bbox=dict(boxstyle="round,pad=0.8", facecolor=f_color, edgecolor="black", lw=1.5),
+                                    ha="center", va="center", zorder=4)
                         
-                        ax.set_title(f"🚚 ALUR RUTE KENDARAAN {k} (Kapasitas: {Q[k]} Keranjang)", fontsize=12, fontweight='bold', loc='left', pad=10)
-                        ax.set_xlim(-1.5, max(x_pos - 1, 15))
-                        ax.set_ylim(2, 8)
+                        for i in range(len(visit_labels) - 1):
+                            x_start, y_start = coords[i]
+                            x_end, y_end = coords[i+1]
+                            
+                            if y_start != y_end:
+                                arrow = patches.FancyArrowPatch(
+                                    (x_start, y_start - 0.5), (x_end, y_end + 0.5),
+                                    arrowstyle="-|>", connectionstyle="angle,angleA=90,angleB=0,rad=10",
+                                    mutation_scale=15, linewidth=2.5, color="#1A237E"
+                                )
+                            else:
+                                arrow = patches.FancyArrowPatch(
+                                    (x_start, y_start), (x_end, y_end),
+                                    arrowstyle="-|>", connectionstyle="arc3,rad=0",
+                                    mutation_scale=15, linewidth=2.5, color="#1A237E",
+                                    shrinkA=35, shrinkB=35
+                                )
+                            ax.add_patch(arrow)
+                        
+                        all_x = [c[0] for c in coords]
+                        all_y = [c[1] for c in coords]
+                        ax.set_xlim(min(all_x) - 2, max(all_x) + 2)
+                        ax.set_ylim(min(all_y) - 1.5, max(all_y) + 1.5)
+                        ax.set_title(f"🚚 ALUR DIAGRAM DISTRIBUSI KENDARAAN {k}\n(Kapasitas: {Q[k]} Keranjang)", fontsize=13, fontweight='bold', pad=15)
                     else:
-                        ax.text(5, 5, "KENDARAAN TIDAK BEROPERASI (NON-AKTIF)", fontsize=11, color='gray', ha='center', fontweight='bold')
-                        ax.set_title(f"🚚 KENDARAAN {k} (Non-Aktif)", fontsize=12, fontweight='bold', loc='left', pad=10)
+                        ax.text(5, -2, "KENDARAAN TIDAK BEROPERASI (NON-AKTIF)", fontsize=12, color='gray', ha='center', fontweight='bold')
+                        ax.set_title(f"🚚 KENDARAAN {k} (Non-Aktif)", fontsize=13, fontweight='bold', pad=15)
                         ax.set_xlim(0, 10)
-                        ax.set_ylim(2, 8)
+                        ax.set_ylim(-5, 0)
                         
                     ax.axis('off')
                 
@@ -267,7 +306,7 @@ if st.button("🚀 PROSES OPTIMALISASI RUTE PABRIK", type="primary"):
                 st.download_button(
                     label="📥 Download Gambar Hasil Pemetaan Rute (PNG)",
                     data=buf,
-                    file_name="peta_rute_distribusi_panah.png",
+                    file_name="bagan_rute_distribusi_grid.png",
                     mime="image/png"
                 )
             else:

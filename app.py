@@ -107,8 +107,8 @@ if st.button("🚀 PROSES OPTIMALISASI RUTE PABRIK", type="primary"):
     with st.spinner("Sedang menjalankan kalkulasi Gurobi..."):
         try:
             params = {
-                "WLSACCESSID": "AKU_AKAN_BANTU_AMANKAN_INI", 
-                "WLSSECRET": "SECRET_KAMU",   
+                "WLSACCESSID": "6b1fb55d-b2cf-4cb8-8d86-6f1fc77d9174", 
+                "WLSSECRET": "680a8710-bf53-42b6-910f-8b8508b4f1a0",   
                 "LICENSEID": 2818118,
             }
             

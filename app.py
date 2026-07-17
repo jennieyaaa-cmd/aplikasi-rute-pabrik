@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import io
 import gurobipy as gp
 from gurobipy import GRB
@@ -61,7 +62,6 @@ st.divider()
 st.markdown("### 🎯 Jumlah Demand Toko (Retailer 1 - 20)")
 st.caption("💡 Masukkan jumlah dalam satuan **Pieces (Pcs)**. Sistem otomatis membaginya dengan 50 dan membulatkan ke atas menjadi satuan **Keranjang** untuk MILP.")
 
-# Nilai default awal dalam satuan Pcs (Disesuaikan dari base data keranjang asli dikali 50)
 default_demand_pcs = {
     f"R{i}": [150 if i in [1, 2, 11, 12, 16, 17] else 200 if i == 5 else 100] 
     for i in range(1, 21)
@@ -113,7 +113,7 @@ if st.button("🚀 PROSES OPTIMALISASI RUTE PABRIK", type="primary"):
         for j in range(21):
             t_input[i, j] = float(matrix_values[i][j])
             
-    with st.spinner("Sedang menjalankan kalkulasi Gurobi & Pemetaan Rute..."):
+    with st.spinner("Sedang menjalankan kalkulasi Gurobi..."):
         try:
             params = {
                 "WLSACCESSID": "6b1fb55d-b2cf-4cb8-8d86-6f1fc77d9174", 
@@ -162,27 +162,18 @@ if st.button("🚀 PROSES OPTIMALISASI RUTE PABRIK", type="primary"):
                 st.success("🎉 OPTIMASI SELESAI & BERHASIL DITEMUKAN!")
                 st.metric(label="Total Waktu Operasional Armada", value=f"{round(model.ObjVal, 2)} Menit")
                 
-                fig, ax = plt.subplots(figsize=(10, 7), facecolor='white')
-                np.random.seed(10)  # Agar plot posisi toko konsisten rapi
-                x_coords = [0.0] + list(np.cos(np.linspace(0, 2*np.pi, 20)) * 6)
-                y_coords = [0.0] + list(np.sin(np.linspace(0, 2*np.pi, 20)) * 6)
+                # Mengatur susunan koordinat melingkar sempurna berurutan dari R1 ke R20
+                angles = np.linspace(0, 2 * np.pi, 21) # Membagi 20 titik merata
+                x_coords = [0.0] + list(np.cos(angles[:-1]) * 6)
+                y_coords = [0.0] + list(np.sin(angles[:-1]) * 6)
                 
-                ax.scatter(x_coords[0], y_coords[0], color='black', marker='s', s=250, zorder=5)
-                ax.text(x_coords[0], y_coords[0]+0.5, 'PABRIK (L0)', fontsize=10, fontweight='bold', ha='center')
-                
-                for i in range(1, 21):
-                    ax.scatter(x_coords[i], y_coords[i], color='white', edgecolor='black', linewidth=1.5, s=150, zorder=4)
-                    ax.text(x_coords[i], y_coords[i]+0.25, f'R{i}', fontsize=9, ha='center', fontweight='bold')
+                routes_data = {}
                 
                 for k in K:
                     start_node = next((i for i in V if start[i, k].x > 0.5), None)
                     if start_node is not None:
+                        nodes_sequence = [0, start_node]
                         route_text = f"Pabrik ➡️ R-{start_node}"
-                        
-                        style_line = "solid" if k == 1 else "dashed"
-                        ax.annotate('', xy=(x_coords[start_node], y_coords[start_node]), xytext=(x_coords[0], y_coords[0]),
-                                    arrowprops=dict(arrowstyle="-|>", color="black", lw=1.5, linestyle=style_line))
-                        
                         curr = start_node
                         while True:
                             nxt_direct = next((j for j in V if curr != j and (curr, j, k) in x and x[curr, j, k].x > 0.5), None)
@@ -190,43 +181,88 @@ if st.button("🚀 PROSES OPTIMALISASI RUTE PABRIK", type="primary"):
                             
                             if nxt_direct is not None:
                                 route_text += f" ➡️ R-{nxt_direct}"
-                                ax.annotate('', xy=(x_coords[nxt_direct], y_coords[nxt_direct]), xytext=(x_coords[curr], y_coords[curr]),
-                                            arrowprops=dict(arrowstyle="-|>", color="black", lw=1.5, linestyle=style_line))
+                                nodes_sequence.append(nxt_direct)
                                 curr = nxt_direct
                             elif nxt_refill is not None:
-                                route_text += f" 🔄 **[REFILL KE PABRIK]** ➡️ Pabrik ➡️ R-{nxt_refill}"
-                                # Garis balik ke pabrik
-                                ax.annotate('', xy=(x_coords[0], y_coords[0]), xytext=(x_coords[curr], y_coords[curr]),
-                                            arrowprops=dict(arrowstyle="-|>", color="black", lw=1.2, linestyle="dotted"))
-                                # Garis jalan lagi dari pabrik ke node refill baru
-                                ax.annotate('', xy=(x_coords[nxt_refill], y_coords[nxt_refill]), xytext=(x_coords[0], y_coords[0]),
-                                            arrowprops=dict(arrowstyle="-|>", color="black", lw=1.5, linestyle=style_line))
+                                route_text += f" 🔄 [REFILL] ➡️ Pabrik ➡️ R-{nxt_refill}"
+                                nodes_sequence.extend([0, nxt_refill])
                                 curr = nxt_refill
                             else:
-                                # Garis pulang dari node terakhir ke pabrik
-                                ax.annotate('', xy=(x_coords[0], y_coords[0]), xytext=(x_coords[curr], y_coords[curr]),
-                                            arrowprops=dict(arrowstyle="-|>", color="black", lw=1.5, linestyle=style_line))
+                                nodes_sequence.append(0)
                                 break
-                        route_text += " ➡️ Pabrik (Selesai)🏁"
+                        route_text += " ➡️ Pabrik (Selesai) 🏁"
                         st.info(f"**Rute Kendaraan {k} (Kapasitas {Q[k]} Keranjang):**  \n{route_text}")
+                        routes_data[k] = nodes_sequence
                     else:
-                        st.warning(f"**Kendaraan {k}:** Tidak digunakan untuk pengiriman hari ini.")
+                        st.warning(f"**Kendaraan {k}:** Tidak digunakan.")
+                        routes_data[k] = []
                 
-                st.markdown("### 📊 Peta Visualisasi Rute Hasil Optimasi (Hitam-Putih)")
-                ax.set_title("PETA RUTE DISTRIBUSI KENDARAAN OPERASIONAL PABRIK", fontsize=12, fontweight='bold', pad=15)
-                ax.axis('off')
+                st.markdown("### 📊 Peta Visualisasi Jalur Distribusi Kendaraan (Hitam-Putih)")
+                
+                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8), facecolor='white')
+                axes = {1: ax1, 2: ax2}
+                
+                for k in K:
+                    ax = axes[k]
+                    
+                    ax.scatter(0, 0, color='black', marker='s', s=350, zorder=5)
+                    ax.text(0, -0.6, '🏢 PABRIK\n(L0)', fontsize=10, fontweight='bold', ha='center', va='top')
+                    
+                    for i in range(1, 21):
+                        ax.scatter(x_coords[i], y_coords[i], color='white', edgecolor='#cccccc', linewidth=1, s=250, zorder=2)
+                        ax.text(x_coords[i], y_coords[i], str(i), fontsize=8, color='#aaaaaa', ha='center', va='center')
+                    
+                    seq = routes_data[k]
+                    if len(seq) > 2:
+                        for s in range(len(seq) - 1):
+                            u, v_node = seq[s], seq[s+1]
+                            
+                            pos_a = (x_coords[u], y_coords[u])
+                            pos_b = (x_coords[v_node], y_coords[v_node])
+                            
+                            is_refill_return = (v_node == 0 and s > 1)
+                            style_line = "dashed" if (u == 0 or is_refill_return) else "solid"
+                            color_line = "#666666" if is_refill_return else "black"
+                            
+                            arrow = patches.FancyArrowPatch(
+                                pos_a, pos_b,
+                                arrowstyle="-|>", 
+                                connectionstyle="arc3,rad=0.05", 
+                                mutation_scale=15, 
+                                linewidth=2.0, 
+                                linestyle=style_line, 
+                                color=color_line, 
+                                shrinkA=10 if u != 0 else 5,  # Jarak potong dari titik asal
+                                shrinkB=12 if v_node != 0 else 5, # Jarak potong sebelum menyentuh titik tujuan
+                                zorder=3
+                            )
+                            ax.add_patch(arrow)
+                            
+                        visited_nodes = set(seq) - {0}
+                        for node in visited_nodes:
+                            ax.scatter(x_coords[node], y_coords[node], color='black', s=300, zorder=4)
+                            ax.text(x_coords[node], y_coords[node], f"R{node}", fontsize=9, color='white', fontweight='bold', ha='center', va='center')
+                            
+                        ax.set_title(f"🚚 JALUR DISTRIBUSI KENDARAAN {k}\n(Kapasitas: {Q[k]} Keranjang)", fontsize=12, fontweight='bold', pad=15)
+                    else:
+                        ax.text(0, 2, "KENDARAAN TIDAK BEROPERASI", fontsize=12, color='gray', ha='center', fontweight='bold')
+                        ax.set_title(f"🚚 KENDARAAN {k} (Non-Aktif)", fontsize=12, fontweight='bold', pad=15)
+                        
+                    ax.axis('off')
+                    ax.set_xlim(-8, 8)
+                    ax.set_ylim(-8, 8)
+                
+                plt.tight_layout()
                 st.pyplot(fig)
                 
-                # Proses pembuatan data buffer gambar untuk di-download
                 buf = io.BytesIO()
                 plt.savefig(buf, format="png", bbox_inches='tight', dpi=300)
                 buf.seek(0)
                 
-                # Tombol Download
                 st.download_button(
-                    label="📥 Download Gambar Peta Rute (PNG)",
+                    label="📥 Download Gambar Hasil Pemetaan Rute (PNG)",
                     data=buf,
-                    file_name="rute_distribusi_pabrik.png",
+                    file_name="peta_rute_distribusi_presisi.png",
                     mime="image/png"
                 )
             else:
